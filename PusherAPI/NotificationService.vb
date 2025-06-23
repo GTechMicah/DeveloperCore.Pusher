@@ -4,17 +4,12 @@ Imports System.Text
 Imports System.Text.Json
 Imports System.Threading
 Imports Microsoft.AspNetCore.Http
-Imports Microsoft.Extensions.Configuration
 
 Public Class NotificationService
-    Private ReadOnly _config As IConfiguration
-
-    Public Sub New(config As IConfiguration)
-        _config = config
-    End Sub
+    Public Shared Property Keys As HashSet(Of String) = New HashSet(Of String)()
 
     Public Async Function Send(channel As String, [event] As String, key As String, data As Object) As Task(Of Boolean)
-        If key <> _config.Item("Key") Then Return False
+        If Not Keys.Contains(key) Then Return False
         Dim notification As New Notification(channel, [event], data)
         Dim str As String = JsonSerializer.Serialize(notification)
         Dim dataBytes As Byte() = Encoding.UTF8.GetBytes(str)
@@ -30,11 +25,9 @@ Public Class NotificationService
     Private Shared ReadOnly _sseCallbacks As New List(Of Action(Of String))()
     Private Shared ReadOnly _clients As New List(Of WebSocket)
 
-    Public Shared Property Key As String
-
     Public Shared Async Function SocketHandler(context As HttpContext) As Task
         If context.WebSockets.IsWebSocketRequest Then
-            If context.Request.Query.ContainsKey("key") AndAlso context.Request.Query.Item("key") = Key Then
+            If context.Request.Query.ContainsKey("key") AndAlso Keys.Contains(context.Request.Query.Item("key")) Then
                 Dim webSocket = Await context.WebSockets.AcceptWebSocketAsync()
                 SyncLock _clients
                     _clients.Add(webSocket)
@@ -72,7 +65,7 @@ Public Class NotificationService
     End Function
 
     Public Shared Function SseHandler(key As String, token As CancellationToken) As IResult
-        If key = NotificationService.Key Then
+        If Keys.Contains(key) Then
             Return TypedResults.ServerSentEvents(New EventStreamEnumerable(token))
         Else
             Return TypedResults.Unauthorized()

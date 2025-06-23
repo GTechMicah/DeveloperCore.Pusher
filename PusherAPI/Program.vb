@@ -1,12 +1,14 @@
 Imports System.Threading
 Imports Microsoft.AspNetCore.Builder
+Imports Microsoft.Extensions.Configuration
 Imports Microsoft.Extensions.DependencyInjection
 Imports Scalar.AspNetCore
 
 Public Module Program
     Public Sub Main(args As String())
         Dim builder As WebApplicationBuilder = WebApplication.CreateBuilder(args)
-        NotificationService.Key = builder.Configuration.Item("Key")
+        Dim keys = builder.Configuration.GetSection("Keys").Get(Of List(Of String))()
+        NotificationService.Keys = New HashSet(Of String)(keys)
         builder.Services.AddControllers()
         builder.Services.AddEndpointsApiExplorer()
         builder.Services.AddOpenApi()
